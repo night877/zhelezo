@@ -1,5 +1,5 @@
 'use strict';
-/* ЖЕЛЕЗО — домашний журнал тренировок на резине. Telegram Mini App без сервера:
+/* PUMPING RUBBER — домашний журнал тренировок на резине. Telegram Mini App без сервера:
    данные в localStorage + Telegram CloudStorage (синхронизация между устройствами). */
 
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -201,7 +201,7 @@ function vCover() {
   const last = ws[ws.length - 1];
   const user = tg?.initDataUnsafe?.user;
   const photo = S.coverImg || user?.photo_url;
-  const name = (user?.first_name || 'Чемпион');
+  const name = (S.settings.name || user?.first_name || 'Чемпион');
   const issue = ws.length + 1;
   const streak = weekStreak();
   const monReps = mon.reduce((a, w) => a + wStats(w).reps, 0);
@@ -210,7 +210,7 @@ function vCover() {
   <section class="cover">
     ${photo ? `<div class="cover-photo" style="background-image:url('${esc(photo)}')"></div>` : `<div class="cover-noimg">${issue}</div>`}
     <div class="mast-top"><span>Выпуск №${issue}</span><span>${MONTHS[now.getMonth()]} ${now.getFullYear()}</span></div>
-    <div class="masthead">ЖЕЛЕЗО</div>
+    <div class="masthead">PUMPING<br>RUBBER</div>
     <div class="mast-sub"><b>ДОМА</b><span>Журнал бодибилдинга на резине</span></div>
     <div class="lines">
       <div><div class="cl-kick">Эксклюзив</div><div class="cl-big">${esc(name)}:<br><em>тренировка №${issue}</em></div></div>
@@ -279,11 +279,11 @@ function vBuild() {
 function sheetSetlist(keep) {
   openSheet(`
     <div class="sh-head"><h3>Сет-лист</h3><button class="sh-x" data-act="close">×</button></div>
-    <ul class="sl">${S.sel.map((id, i) => `<li><span class="num">${i + 1}</span><span class="nm">${esc(exById(id).n)}</span>
+    <ul class="sl">${S.sel.map((id, i) => `<li><span class="num">${exLabel(S.mode, i, S.sel.length)}</span><span class="nm">${esc(exById(id).n)}</span>
       <span class="mvs"><button class="mv" data-act="mv" data-l="sel" data-i="${i}" data-d="-1">↑</button><button class="mv" data-act="mv" data-l="sel" data-i="${i}" data-d="1">↓</button></span><button class="mv" data-act="sl-del" data-i="${i}">✕</button></li>`).join('')}</ul>
-    <div class="seg"><button class="${S.mode === 'mega' ? 'on' : ''}" data-act="mode" data-m="mega">Мегасет (круг)</button><button class="${S.mode === 'sets' ? 'on' : ''}" data-act="mode" data-m="sets">По подходам</button></div>
-    <p class="mute" style="margin:0 16px;font-size:14px;font-style:italic">${S.mode === 'mega' ? 'Все упражнения подряд без отдыха, отдых — после круга.' : 'Сначала все подходы одного упражнения, потом следующее.'}</p>
-    <div class="stepper"><span class="lbl">${S.mode === 'mega' ? 'Кругов (сетов)' : 'Подходов на упражнение'}</span><span class="ctl"><button data-act="rnd" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd" data-d="1">+</button></span></div>
+    ${modeSeg('mode')}
+    <p class="mute" style="margin:0 16px;font-size:14px;font-style:italic">${MODE_HINT[S.mode]}</p>
+    <div class="stepper"><span class="lbl">${roundsLbl(S.mode)}</span><span class="ctl"><button data-act="rnd" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd" data-d="1">+</button></span></div>
     <div class="sh-actions">
       <button class="btn" data-act="start">Начать тренировку</button>
       <div class="row"><button class="btn dark sm" data-act="save-prog">Сохранить как программу</button><button class="btn dark sm" data-act="sl-clear">Очистить</button></div>
@@ -350,11 +350,11 @@ function sheetRandom(keep) {
     <div class="seg">${[['base', 'База'], ['mix', 'Микс'], ['iso', 'Изоляция']].map(([k, n]) => `<button class="${cfg.type === k ? 'on' : ''}" data-act="rnd-type" data-k="${k}">${n}</button>`).join('')}</div>
     <div class="stepper"><span class="lbl">Упражнений</span><span class="ctl"><button data-act="rnd-n" data-d="-1">−</button><b>${cfg.n}</b><button data-act="rnd-n" data-d="1">+</button></span></div>
     <div class="rubric" style="padding-top:6px"><span class="tag">Выпало</span><button class="r" data-act="rnd-all">🎲 перебросить всё</button></div>
-    <ul class="sl">${S.rndIds.map((id, i) => { const e = exById(id); return `<li><span class="num">${i + 1}</span>
+    <ul class="sl">${S.rndIds.map((id, i) => { const e = exById(id); return `<li><span class="num">${exLabel(S.mode, i, S.rndIds.length)}</span>
       <button class="nm" data-act="ex-info" data-id="${id}">${esc(e.n)}<small>${GN[e.g]} · ${KN[e.k] || ''}${e.a ? ' · крепление: ' + ANCH[e.a] : ''}</small></button>
       <span class="mvs"><button class="mv" data-act="mv" data-l="rnd" data-i="${i}" data-d="-1">↑</button><button class="mv" data-act="mv" data-l="rnd" data-i="${i}" data-d="1">↓</button></span><button class="mv" data-act="rnd-one" data-i="${i}">🎲</button><button class="mv" data-act="rnd-del" data-i="${i}">✕</button></li>`; }).join('') || '<div class="empty">Под такие условия ничего не нашлось.</div>'}</ul>
-    <div class="seg"><button class="${S.mode === 'mega' ? 'on' : ''}" data-act="rnd-mode" data-m="mega">Мегасет (круг)</button><button class="${S.mode === 'sets' ? 'on' : ''}" data-act="rnd-mode" data-m="sets">По подходам</button></div>
-    <div class="stepper"><span class="lbl">${S.mode === 'mega' ? 'Кругов' : 'Подходов'}</span><span class="ctl"><button data-act="rnd-r" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd-r" data-d="1">+</button></span></div>
+    ${modeSeg('rnd-mode')}
+    <div class="stepper"><span class="lbl">${roundsLbl(S.mode)}</span><span class="ctl"><button data-act="rnd-r" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd-r" data-d="1">+</button></span></div>
     <div class="sh-actions"><button class="btn dark sm" data-act="rnd-edit">Поправить в конструкторе</button></div>
     <div class="sticky-go"><button class="btn" data-act="rnd-go" ${S.rndIds.length ? '' : 'disabled'}>Поехали! ${S.rndIds.length} упр. ▸</button></div>`, false, keep);
 }
@@ -397,6 +397,19 @@ function sheetNewEx() {
     <div class="sh-actions"><button class="btn" data-act="save-own">Сохранить</button></div>`);
 }
 
+
+/* режимы тренировки */
+const MODES = [['mega', 'Мегасет'], ['super', 'Суперсеты'], ['sets', 'Подходы']];
+const MODE_HINT = {
+  mega: 'Все упражнения подряд без отдыха, отдых — после круга.',
+  super: 'Упражнения парами: 1А + 1Б подряд без отдыха, отдых — после пары. Пары меняются стрелками ↑↓.',
+  sets: 'Сначала все подходы одного упражнения, потом следующее.',
+};
+const modeSeg = act => `<div class="seg">${MODES.map(([k, n]) => `<button class="${S.mode === k ? 'on' : ''}" data-act="${act}" data-m="${k}">${n}</button>`).join('')}</div>`;
+const roundsLbl = m => m === 'mega' ? 'Кругов' : m === 'super' ? 'Подходов в суперсете' : 'Подходов на упражнение';
+const partner = (i, len) => { const j = i ^ 1; return j < len ? j : -1; }; // пары: 0-1, 2-3, …
+const exLabel = (mode, i, len) => mode === 'super' && partner(i, len) >= 0 ? `${(i >> 1) + 1}${i % 2 ? 'Б' : 'А'}` : String(mode === 'super' ? (i >> 1) + 1 : i + 1);
+
 /* ---------- live workout ---------- */
 function startWorkout(items, mode, rounds, title) {
   const now = Date.now();
@@ -420,11 +433,16 @@ function vLive() {
     const roundDone = r => d.items.every(it => it.sets[r] && it.sets[r].d);
     body += `<div class="round-tabs">${Array.from({ length: R }, (_, r) => `<button class="${r === S.round ? 'on' : ''} ${roundDone(r) ? 'done' : ''}" data-act="round" data-r="${r}">Круг ${r + 1}</button>`).join('')}<button data-act="add-round">+ круг</button></div>`;
     body += d.items.map((it, i) => wxCard(it, i, [S.round])).join('');
+  } else if (d.mode === 'super') {
+    for (let i = 0; i < d.items.length; i += 2) {
+      const pair = d.items.slice(i, i + 2);
+      body += `<div class="ss"><div class="ss-h">${pair.length > 1 ? 'Суперсет' : 'Упражнение'} ${(i >> 1) + 1}</div>${pair.map((it, j) => wxCard(it, i + j, it.sets.map((_, k) => k))).join('')}</div>`;
+    }
   } else {
     body += d.items.map((it, i) => wxCard(it, i, it.sets.map((_, k) => k))).join('');
   }
   return `
-  <div class="live-top"><div><div class="lt">${mega ? `Мегасет · круг ${S.round + 1} из ${d.rounds}` : 'По подходам'}</div><div class="clock" id="clock">${clock(Date.now() - d.start)}</div></div>
+  <div class="live-top"><div><div class="lt">${mega ? `Мегасет · круг ${S.round + 1} из ${d.rounds}` : d.mode === 'super' ? 'Суперсеты' : 'По подходам'}</div><div class="clock" id="clock">${clock(Date.now() - d.start)}</div></div>
     <button class="btn sm" data-act="finish">Финиш ▸</button></div>
   ${body}
   <div class="wrap" style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
@@ -438,11 +456,11 @@ function wxCard(it, i, setIdx) {
   const e = exById(it.ex);
   const prev = lastFor(it.ex, S.draft.start);
   return `<div class="wx" data-i="${i}">
-    <div class="wx-h"><span class="n">${i + 1}</span><div class="t"><b>${esc(e.n)}</b><small>${GN[e.g] || ''}${e.a ? ' · крепление: ' + ANCH[e.a] : ''}</small></div>
+    <div class="wx-h"><span class="n">${exLabel(S.draft.mode, i, S.draft.items.length)}</span><div class="t"><b>${esc(e.n)}</b><small>${GN[e.g] || ''}${e.a ? ' · крепление: ' + ANCH[e.a] : ''}</small></div>
       <button class="info" data-act="mv" data-l="live" data-i="${i}" data-d="-1" ${i ? '' : 'disabled'}>↑</button><button class="info" data-act="mv" data-l="live" data-i="${i}" data-d="1" ${i < S.draft.items.length - 1 ? '' : 'disabled'}>↓</button><button class="info" data-act="ex-info" data-id="${e.id}">i</button></div>
     ${prev ? `<div class="prev">Прошлый раз (${fmtDate(prev.w.start)}): <b>${esc(setsTxt(prev.it.sets))}</b></div>` : ''}
     ${setIdx.map(k => setRow(it, i, k)).join('')}
-    ${S.draft.mode === 'sets' ? `<button class="addset" data-act="add-set" data-i="${i}">+ подход</button>` : ''}
+    ${S.draft.mode !== 'mega' ? `<button class="addset" data-act="add-set" data-i="${i}">+ подход</button>` : ''}
   </div>`;
 }
 function setRow(it, i, k) {
@@ -483,6 +501,7 @@ async function finishWorkout() {
   d.items = d.items.filter(it => it.sets.length);
   if (!d.items.length) { if (!await ask('Ни одного подхода не записано. Удалить тренировку?')) return; S.draft = null; saveDraft(); go('cover'); return; }
   d.end = Date.now();
+  if (d.mode !== 'mega') d.rounds = Math.max(...d.items.map(it => it.sets.length));
   const w = d; S.workouts.push(w); S.draft = null; rest = null;
   saveWorkout(w); saveDraft(); notify();
   go('journal'); sheetReport(w.id, true);
@@ -525,7 +544,7 @@ function vJournal() {
   <div class="rubric"><span class="tag">Режим</span><h2>12 недель</h2><span class="r">трен./нед.</span></div>
   <div class="weeks" style="margin-top:14px">${wk.map((n, i) => `<div class="${i === 11 ? 'c' : ''}" style="height:${n / wmx * 100}%">${n ? `<b>${n}</b>` : ''}</div>`).join('')}</div>
   <div class="wlbl"><span>12 нед. назад</span><span>эта неделя</span></div>
-  <div class="stats"><div class="stat"><b>${S.workouts.length}</b><span>всего</span></div><div class="stat"><b>${weekStreak()}</b><span>недель подряд</span></div><div class="stat"><b>${Math.round(S.workouts.reduce((a, w) => a + wStats(w).dur, 0) / 3600000)}</b><span>часов в железе</span></div></div>` : ''}
+  <div class="stats"><div class="stat"><b>${S.workouts.length}</b><span>всего</span></div><div class="stat"><b>${weekStreak()}</b><span>недель подряд</span></div><div class="stat"><b>${Math.round(S.workouts.reduce((a, w) => a + wStats(w).dur, 0) / 3600000)}</b><span>часов на резине</span></div></div>` : ''}
   <div style="height:20px"></div>`;
 }
 function issueRow(w) {
@@ -538,9 +557,11 @@ function issueRow(w) {
 function channelText(w) {
   const lines = [`🗓️ ТРЕНИРОВКА // ${fmtDate(w.start)} (${fmtTime(w.start)})`];
   if (w.mode === 'mega') lines.push(`🔄 Мегасет — ${plural(w.rounds, 'сет', 'сета', 'сетов')}`);
+  else if (w.mode === 'super') lines.push(`⚡ Суперсеты — ${plural(w.rounds, 'сет', 'сета', 'сетов')}`);
   else lines.push(`🏋️ По подходам — ${fmtDur(w.end - w.start)}`);
   lines.push('');
-  w.items.forEach((it, i) => lines.push(`${NUMS[i] || (i + 1) + '.'} ${exById(it.ex).n} — ${setsTxt(it.sets)}`));
+  if (w.mode === 'super') w.items.forEach((it, i) => lines.push(`${i % 2 ? '     + ' : (NUMS[i >> 1] || (i >> 1) + 1 + '.') + ' '}${exById(it.ex).n} — ${setsTxt(it.sets)}`));
+  else w.items.forEach((it, i) => lines.push(`${NUMS[i] || (i + 1) + '.'} ${exById(it.ex).n} — ${setsTxt(it.sets)}`));
   if (w.note) lines.push('', w.note);
   return lines.join('\n');
 }
@@ -548,14 +569,14 @@ function sheetReport(id, fresh) {
   const w = S.workouts.find(x => x.id === id); if (!w) return;
   const s = wStats(w);
   const d = new Date(w.start);
-  const deck = `${d.getDate()} ${MONTHS_G[d.getMonth()]}, ${fmtTime(w.start)}. ${w.mode === 'mega' ? plural(w.rounds, 'круг', 'круга', 'кругов') + ' мегасета' : 'Работа по подходам'} — ${fmtDur(s.dur)} чистого железа.`;
+  const deck = `${d.getDate()} ${MONTHS_G[d.getMonth()]}, ${fmtTime(w.start)}. ${w.mode === 'mega' ? plural(w.rounds, 'круг', 'круга', 'кругов') + ' мегасета' : w.mode === 'super' ? 'Суперсеты по ' + plural(w.rounds, 'подходу', 'подхода', 'подходов') : 'Работа по подходам'} — ${fmtDur(s.dur)} на резине.`;
   openSheet(`
     <div class="art">
       <div class="art-kick"><b>Выпуск №${issueNo(w)}</b><span>${fresh ? 'Свежий номер' : 'Отчёт'}</span><button class="sh-x" data-act="close" style="margin-top:-8px">×</button></div>
       <h2>${esc(wTitle(w))}</h2>
       <p class="deck">${deck}</p>
       <div class="art-stats"><div><b>${s.ex}</b><span>упражн.</span></div><div><b>${s.sets}</b><span>подходов</span></div><div><b>${s.reps}</b><span>повторов</span></div><div><b>${Math.max(1, Math.round(s.dur / 60000))}</b><span>минут</span></div></div>
-      <div class="art-tbl">${w.items.map((it, i) => { const e = exById(it.ex); return `<div class="art-ex"><span class="n">${i + 1}</span><div class="x"><b>${esc(e.n)}</b><small>${GN[e.g] || ''}</small><div class="sets">${esc(setsTxt(it.sets))}</div></div></div>`; }).join('')}</div>
+      <div class="art-tbl">${w.items.map((it, i) => { const e = exById(it.ex); return `<div class="art-ex"><span class="n">${exLabel(w.mode, i, w.items.length)}</span><div class="x"><b>${esc(e.n)}</b><small>${GN[e.g] || ''}</small><div class="sets">${esc(setsTxt(it.sets))}</div></div></div>`; }).join('')}</div>
       ${w.note && !fresh ? `<div class="note">${esc(w.note)}</div>` : ''}
       <div class="rubric" style="border:0;padding-bottom:4px"><span class="tag">Самочувствие</span></div>
       <div class="rate">${RATES.map(([k, n]) => `<button class="${w.rate === k ? 'on' : ''}" data-act="rate" data-id="${w.id}" data-k="${k}">${n}</button>`).join('')}</div>
@@ -584,15 +605,16 @@ function vMore() {
   <button class="toggle ${st.gym ? 'on' : ''}" data-act="gym"><span>Гимнастика (флаги, планш, стойки на руках)</span><i></i></button>
   <div class="rubric"><span class="tag">Режим</span><h2>Настройки</h2></div>
   <div class="stepper"><span class="lbl">Отдых, сек</span><span class="ctl"><button data-act="rest-set" data-d="-15">−</button><b>${st.rest}</b><button data-act="rest-set" data-d="15">+</button></span></div>
-  <div class="rubric"><span class="tag">Обложка</span><h2>Фото на обложку</h2></div>
+  <div class="rubric"><span class="tag">Обложка</span><h2>Имя и фото</h2></div>
+  <label class="field"><span>Имя на обложке</span><input id="cover-name" maxlength="24" value="${esc(st.name || '')}" placeholder="${esc(tg?.initDataUnsafe?.user?.first_name || 'Чемпион')}"></label>
   <div class="wrap row" style="padding-top:10px"><label class="btn dark sm" style="cursor:pointer">Выбрать фото<input type="file" accept="image/*" id="cover-file" hidden></label>${S.coverImg ? '<button class="btn ghost sm" data-act="cover-del">Убрать</button>' : ''}</div>
   <div class="rubric"><span class="tag">Архив</span><h2>Резервная копия</h2></div>
   <p class="mute" style="margin:8px 16px;font-size:14px;font-style:italic">${cloudOK() ? 'Дневник хранится в облаке Telegram и доступен с любого твоего устройства.' : 'Сейчас данные хранятся только в этом браузере.'} Копию можно сохранить файлом на всякий случай.</p>
   <div class="wrap row"><button class="btn dark sm" data-act="export">Скачать копию</button><label class="btn dark sm" style="cursor:pointer">Загрузить<input type="file" accept=".json,application/json" id="import-file" hidden></label></div>
-  <div class="foot">ЖЕЛЕЗО · домашний журнал тренировок. База упражнений — на основе Functional Fitness Exercise Database (Strength to Overcome), переведено и отобрано для тренировок дома; видео — с их YouTube-канала.</div>`;
+  <div class="foot">PUMPING RUBBER · домашний журнал тренировок. База упражнений — на основе Functional Fitness Exercise Database (Strength to Overcome), переведено и отобрано для тренировок дома; видео — с их YouTube-канала.</div>`;
 }
 function progRow(p) {
-  return `<div class="prog"><div class="t"><b>${esc(p.name)}</b><small>${p.mode === 'mega' ? 'Мегасет × ' + p.rounds : 'Подходы × ' + p.rounds} · ${p.items.map(id => exById(id).n).join(', ')}</small></div>
+  return `<div class="prog"><div class="t"><b>${esc(p.name)}</b><small>${(p.mode === 'mega' ? 'Мегасет × ' : p.mode === 'super' ? 'Суперсеты × ' : 'Подходы × ') + p.rounds} · ${p.items.map(id => exById(id).n).join(', ')}</small></div>
     <button class="btn sm" data-act="prog-go" data-id="${p.id}">▸</button><button class="btn dark sm" data-act="prog-edit" data-id="${p.id}">✎</button></div>`;
 }
 function sheetPrograms() {
@@ -706,7 +728,11 @@ const A = {
   // live
   round: el => { S.round = +el.dataset.r; render(); },
   'add-round': () => { const d = S.draft; d.rounds++; d.items.forEach(it => { const last = it.sets[it.sets.length - 1] || { b: [] }; it.sets.push({ r: '', p: last.r || last.p || '', b: (last.b || []).slice(), d: 0 }); }); S.round = d.rounds - 1; saveDraft(); render(); },
-  'add-set': el => { const it = S.draft.items[+el.dataset.i]; const last = it.sets[it.sets.length - 1] || { b: [] }; it.sets.push({ r: '', p: last.r || last.p || '', b: (last.b || []).slice(), d: 0 }); saveDraft(); render(); },
+  'add-set': el => {
+    const d = S.draft, i = +el.dataset.i, j = d.mode === 'super' ? partner(i, d.items.length) : -1;
+    [i, j].filter(x => x >= 0).forEach(x => { const it = d.items[x]; const last = it.sets[it.sets.length - 1] || { b: [] }; it.sets.push({ r: '', p: last.r || last.p || '', b: (last.b || []).slice(), d: 0 }); });
+    saveDraft(); const y = window.scrollY; render(); window.scrollTo(0, y);
+  },
   rep: el => { const s = S.draft.items[+el.dataset.i].sets[+el.dataset.k]; const cur = s.r === '' ? (+s.p || 9) : +s.r; s.r = Math.max(0, cur + +el.dataset.d) || ''; haptic(); saveDraft(); const inp = el.parentNode.querySelector('input'); inp.value = s.r; },
   band: el => { const s = S.draft.items[+el.dataset.i].sets[+el.dataset.k]; const b = el.dataset.b; s.b = s.b.includes(b) ? s.b.filter(x => x !== b) : [...s.b, b]; el.classList.toggle('on'); haptic(); saveDraft(); },
   done: el => {
@@ -719,6 +745,10 @@ const A = {
       if (d.mode === 'mega') {
         const all = d.items.every(it => it.sets[k] && it.sets[k].d);
         if (all) { notify(); if (k < d.rounds - 1) { S.round = k + 1; render(); startRest(S.settings.rest); toast(`Круг ${k + 1} готов!`); } else { render(); toast('Все круги сделаны — жми «Финиш»'); } return; }
+      } else if (d.mode === 'super') {
+        const j = partner(i, d.items.length);
+        if (j >= 0 && !(d.items[j].sets[k] && d.items[j].sets[k].d)) toast('Без отдыха → ' + exLabel('super', j, d.items.length) + ': ' + exById(d.items[j].ex).n);
+        else startRest(S.settings.rest);
       } else startRest(S.settings.rest);
     }
     render();
@@ -756,7 +786,7 @@ const A = {
 };
 function addToLive(id) {
   const d = S.draft; if (d.items.some(it => it.ex === id)) return toast('Уже в тренировке');
-  const n = d.mode === 'mega' ? d.rounds : S.settings.defSets;
+  const n = d.mode === 'sets' ? S.settings.defSets : d.rounds;
   const prev = lastFor(id); const ps = prev ? prev.it.sets : [];
   d.items.push({ ex: id, sets: Array.from({ length: n }, (_, i) => { const p = ps[Math.min(i, ps.length - 1)]; return { r: '', p: p ? +p.r : '', b: p ? (p.b || []).slice() : [], d: 0 }; }) });
   saveDraft(); closeSheet(); S.addingLive = false; go('live'); toast('Добавлено');
@@ -779,6 +809,7 @@ document.addEventListener('input', e => {
   if (t.id === 'q') { S.q = t.value; clearTimeout(rerenderBuild.t); rerenderBuild.t = setTimeout(() => { const ul = $('#exlist'); const list = filteredEx(); if (ul) ul.innerHTML = list.slice(0, 200).map(exRow).join('') || '<div class="empty">Ничего не нашлось.</div>'; const tag = $('.rubric .tag'); if (tag) tag.textContent = list.length; }, 120); }
   if (t.matches('.reps input')) { const s = S.draft.items[+t.dataset.i].sets[+t.dataset.k]; s.r = t.value.replace(/\D/g, '').slice(0, 3); saveDraft(); }
   if (t.dataset.bandN != null) { S.settings.bands[+t.dataset.bandN].name = t.value.slice(0, 14); clearTimeout(t._s); t._s = setTimeout(() => saveBlob('settings'), 400); }
+  if (t.id === 'cover-name') { S.settings.name = t.value.trim(); clearTimeout(t._s); t._s = setTimeout(() => saveBlob('settings'), 400); }
   if (t.dataset.bandC != null) { S.settings.bands[+t.dataset.bandC].c = t.value; saveBlob('settings'); }
 });
 document.addEventListener('change', e => {

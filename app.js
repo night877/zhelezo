@@ -276,18 +276,18 @@ function vBuild() {
   <div style="height:${S.sel.length ? 70 : 10}px"></div>
   ${S.addingLive ? `<div class="dock"><button class="btn yel" data-act="resume">← Вернуться к тренировке</button></div>` : S.sel.length ? `<div class="dock"><button class="btn" data-act="setlist">Сет-лист <span class="count">${S.sel.length}</span> — дальше ▸</button></div>` : ''}`;
 }
-function sheetSetlist() {
+function sheetSetlist(keep) {
   openSheet(`
     <div class="sh-head"><h3>Сет-лист</h3><button class="sh-x" data-act="close">×</button></div>
     <ul class="sl">${S.sel.map((id, i) => `<li><span class="num">${i + 1}</span><span class="nm">${esc(exById(id).n)}</span>
-      <button class="mv" data-act="sl-up" data-i="${i}">↑</button><button class="mv" data-act="sl-del" data-i="${i}">✕</button></li>`).join('')}</ul>
+      <span class="mvs"><button class="mv" data-act="mv" data-l="sel" data-i="${i}" data-d="-1">↑</button><button class="mv" data-act="mv" data-l="sel" data-i="${i}" data-d="1">↓</button></span><button class="mv" data-act="sl-del" data-i="${i}">✕</button></li>`).join('')}</ul>
     <div class="seg"><button class="${S.mode === 'mega' ? 'on' : ''}" data-act="mode" data-m="mega">Мегасет (круг)</button><button class="${S.mode === 'sets' ? 'on' : ''}" data-act="mode" data-m="sets">По подходам</button></div>
     <p class="mute" style="margin:0 16px;font-size:14px;font-style:italic">${S.mode === 'mega' ? 'Все упражнения подряд без отдыха, отдых — после круга.' : 'Сначала все подходы одного упражнения, потом следующее.'}</p>
     <div class="stepper"><span class="lbl">${S.mode === 'mega' ? 'Кругов (сетов)' : 'Подходов на упражнение'}</span><span class="ctl"><button data-act="rnd" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd" data-d="1">+</button></span></div>
     <div class="sh-actions">
       <button class="btn" data-act="start">Начать тренировку</button>
       <div class="row"><button class="btn dark sm" data-act="save-prog">Сохранить как программу</button><button class="btn dark sm" data-act="sl-clear">Очистить</button></div>
-    </div>`);
+    </div>`, false, keep);
 }
 
 /* ---------- рандомайзер ---------- */
@@ -300,6 +300,7 @@ const PRESETS = [
   ['Руки', ['biceps','triceps','forearms']],
 ];
 const BIG = ['chest','back','quads','shoulders','hamstrings','glutes'];
+const ORDER = ['chest','back','quads','hamstrings','glutes','shoulders','triceps','biceps','forearms','hips','calves','abs'];
 const KN = { c: 'база', i: 'изоляция' };
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const baseKey = n => n.toLowerCase().replace(/\(.*?\)|«.*?»/g, '').replace(/одной рукой|одной ногой|двумя руками|поочерёдн\S*|с резиной|на стенке|стоя|сидя|лёжа/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
@@ -334,8 +335,9 @@ function genRandom() {
     const k = cfg.type === 'base' ? 'c' : cfg.type === 'iso' ? 'i' : (per[g] % 2 ? first : (first === 'c' ? 'i' : 'c'));
     const id = pickOne(g, k, ids); if (id) ids.push(id);
   }
-  // база вперёд, изоляция в конце
-  S.rndIds = ids.filter(id => exById(id).k !== 'i').concat(ids.filter(id => exById(id).k === 'i'));
+  // мышца за мышцей: сначала крупные, пресс в конце; внутри мышцы база -> изоляция
+  const gi = g => ORDER.indexOf(g), ki = id => exById(id).k === 'i' ? 1 : 0;
+  S.rndIds = ids.sort((a, b) => gi(exById(a).g) - gi(exById(b).g) || ki(a) - ki(b));
 }
 function sheetRandom(keep) {
   const cfg = S.settings.rnd;
@@ -350,7 +352,7 @@ function sheetRandom(keep) {
     <div class="rubric" style="padding-top:6px"><span class="tag">Выпало</span><button class="r" data-act="rnd-all">🎲 перебросить всё</button></div>
     <ul class="sl">${S.rndIds.map((id, i) => { const e = exById(id); return `<li><span class="num">${i + 1}</span>
       <button class="nm" data-act="ex-info" data-id="${id}">${esc(e.n)}<small>${GN[e.g]} · ${KN[e.k] || ''}${e.a ? ' · крепление: ' + ANCH[e.a] : ''}</small></button>
-      <button class="mv" data-act="rnd-one" data-i="${i}">🎲</button><button class="mv" data-act="rnd-del" data-i="${i}">✕</button></li>`; }).join('') || '<div class="empty">Под такие условия ничего не нашлось.</div>'}</ul>
+      <span class="mvs"><button class="mv" data-act="mv" data-l="rnd" data-i="${i}" data-d="-1">↑</button><button class="mv" data-act="mv" data-l="rnd" data-i="${i}" data-d="1">↓</button></span><button class="mv" data-act="rnd-one" data-i="${i}">🎲</button><button class="mv" data-act="rnd-del" data-i="${i}">✕</button></li>`; }).join('') || '<div class="empty">Под такие условия ничего не нашлось.</div>'}</ul>
     <div class="seg"><button class="${S.mode === 'mega' ? 'on' : ''}" data-act="rnd-mode" data-m="mega">Мегасет (круг)</button><button class="${S.mode === 'sets' ? 'on' : ''}" data-act="rnd-mode" data-m="sets">По подходам</button></div>
     <div class="stepper"><span class="lbl">${S.mode === 'mega' ? 'Кругов' : 'Подходов'}</span><span class="ctl"><button data-act="rnd-r" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd-r" data-d="1">+</button></span></div>
     <div class="sh-actions"><button class="btn dark sm" data-act="rnd-edit">Поправить в конструкторе</button></div>
@@ -437,7 +439,7 @@ function wxCard(it, i, setIdx) {
   const prev = lastFor(it.ex, S.draft.start);
   return `<div class="wx" data-i="${i}">
     <div class="wx-h"><span class="n">${i + 1}</span><div class="t"><b>${esc(e.n)}</b><small>${GN[e.g] || ''}${e.a ? ' · крепление: ' + ANCH[e.a] : ''}</small></div>
-      <button class="info" data-act="ex-info" data-id="${e.id}">i</button></div>
+      <button class="info" data-act="mv" data-l="live" data-i="${i}" data-d="-1" ${i ? '' : 'disabled'}>↑</button><button class="info" data-act="mv" data-l="live" data-i="${i}" data-d="1" ${i < S.draft.items.length - 1 ? '' : 'disabled'}>↓</button><button class="info" data-act="ex-info" data-id="${e.id}">i</button></div>
     ${prev ? `<div class="prev">Прошлый раз (${fmtDate(prev.w.start)}): <b>${esc(setsTxt(prev.it.sets))}</b></div>` : ''}
     ${setIdx.map(k => setRow(it, i, k)).join('')}
     ${S.draft.mode === 'sets' ? `<button class="addset" data-act="add-set" data-i="${i}">+ подход</button>` : ''}
@@ -672,6 +674,13 @@ const A = {
   },
   'del-own': async el => { if (!await ask('Удалить своё упражнение? В дневнике оно останется как «удалённое».')) return; S.custom.list = S.custom.list.filter(c => c.id !== el.dataset.id); S.sel = S.sel.filter(x => x !== el.dataset.id); saveBlob('custom'); buildIndex(); closeSheet(); render(); },
   setlist: () => sheetSetlist(),
+  mv: el => { // перестановка ↑↓ в рандоме, сет-листе и в идущей тренировке
+    const l = el.dataset.l, i = +el.dataset.i, j = i + +el.dataset.d;
+    const arr = l === 'rnd' ? S.rndIds : l === 'sel' ? S.sel : S.draft.items;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]]; haptic();
+    if (l === 'rnd') sheetRandom(true); else if (l === 'sel') sheetSetlist(true); else { saveDraft(); const y = window.scrollY; render(); window.scrollTo(0, y); }
+  },
   'sl-up': el => { const i = +el.dataset.i; if (i > 0) { [S.sel[i - 1], S.sel[i]] = [S.sel[i], S.sel[i - 1]]; } sheetSetlist(); },
   'sl-del': el => { S.sel.splice(+el.dataset.i, 1); if (!S.sel.length) { closeSheet(); } else sheetSetlist(); rerenderBuild(); },
   'sl-clear': () => { S.sel = []; closeSheet(); rerenderBuild(); },

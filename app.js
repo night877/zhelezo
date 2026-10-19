@@ -288,6 +288,7 @@ function sheetSetlist(keep) {
       <button class="btn" data-act="start">Начать тренировку</button>
       <div class="row"><button class="btn dark sm" data-act="save-prog">Сохранить как программу</button><button class="btn dark sm" data-act="sl-clear">Очистить</button></div>
     </div>`, false, keep);
+  S.sheetFn = () => sheetSetlist(true);
 }
 
 /* ---------- рандомайзер ---------- */
@@ -357,17 +358,18 @@ function sheetRandom(keep) {
     <div class="stepper"><span class="lbl">${roundsLbl(S.mode)}</span><span class="ctl"><button data-act="rnd-r" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd-r" data-d="1">+</button></span></div>
     <div class="sh-actions"><button class="btn dark sm" data-act="rnd-edit">Поправить в конструкторе</button></div>
     <div class="sticky-go"><button class="btn" data-act="rnd-go" ${S.rndIds.length ? '' : 'disabled'}>Поехали! ${S.rndIds.length} упр. ▸</button></div>`, false, keep);
+  S.sheetFn = () => sheetRandom(true);
 }
 function rndChanged() { saveBlob('settings'); genRandom(); haptic(); sheetRandom(true); }
 
 /* ---------- exercise info ---------- */
-function sheetEx(id) {
+function sheetEx(id, back) {
   const e = exById(id); const fav = S.favs.list.includes(id); const on = S.sel.includes(id);
   const hist = [];
   for (let i = S.workouts.length - 1; i >= 0 && hist.length < 6; i--) { const it = S.workouts[i].items.find(x => x.ex === id); if (it && it.sets.some(s => s.r)) hist.push([S.workouts[i], it]); }
   let best = 0; S.workouts.forEach(w => w.items.forEach(it => { if (it.ex === id) it.sets.forEach(s => best = Math.max(best, +s.r || 0)); }));
   openSheet(`
-    <div class="sh-head"><h3>${esc(e.n)}</h3><button class="sh-x" data-act="close">×</button></div>
+    <div class="sh-head">${back ? '<button class="sh-x" data-act="close">←</button>' : ''}<h3>${esc(e.n)}</h3><button class="sh-x" data-act="close">×</button></div>
     <dl class="kv">
       <dt>Мышцы</dt><dd>${GN[e.g] || ''}${e.m && e.m.length ? ' — ' + esc(e.m.join(', ')) : ''}</dd>
       ${e.a ? `<dt>Крепление</dt><dd>резина на стенке: <b>${ANCH[e.a]}</b></dd>` : ''}
@@ -379,13 +381,14 @@ function sheetEx(id) {
     ${e.t ? `<div class="tip"><b>Техника</b>${esc(e.t)}</div>` : ''}
     ${hist.length ? `<div class="rubric" style="padding-top:6px"><span class="tag">История</span></div><div class="hist">${hist.map(([w, it]) => `<div class="hr"><span>${fmtDate(w.start)}</span><span>${esc(setsTxt(it.sets))}</span></div>`).join('')}</div>` : ''}
     <div class="sh-actions">
-      ${S.tab === 'live' ? '' : S.addingLive ? `<button class="btn" data-act="toggle-ex" data-id="${id}">+ В тренировку</button>` : `<button class="btn ${on ? 'dark' : ''}" data-act="toggle-ex" data-id="${id}" data-close="1">${on ? 'Убрать из сет-листа' : '+ В сет-лист'}</button>`}
+      ${S.tab === 'live' || back ? '' : S.addingLive ? `<button class="btn" data-act="toggle-ex" data-id="${id}">+ В тренировку</button>` : `<button class="btn ${on ? 'dark' : ''}" data-act="toggle-ex" data-id="${id}" data-close="1">${on ? 'Убрать из сет-листа' : '+ В сет-лист'}</button>`}
       <div class="row">
         <button class="btn dark sm" data-act="fav" data-id="${id}">${fav ? '★ В избранном' : '☆ В избранное'}</button>
         ${e.v ? `<button class="btn dark sm" data-act="video" data-u="${esc(e.v)}">▶ Видео</button>` : `<button class="btn dark sm" data-act="yt" data-q="${esc(e.en || e.n + ' резина')}">▶ Найти видео</button>`}
       </div>
       ${e.own ? `<button class="btn ghost sm" data-act="del-own" data-id="${id}">Удалить упражнение</button>` : ''}
     </div>`);
+  S.exBack = back || null;
 }
 function sheetNewEx() {
   openSheet(`
@@ -621,13 +624,20 @@ function sheetPrograms() {
   openSheet(`<div class="sh-head"><h3>Мои программы</h3><button class="sh-x" data-act="close">×</button></div>
     ${S.programs.list.map(progRow).join('') || '<div class="empty">Программ пока нет.</div>'}
     <div class="sh-actions"><button class="btn dark" data-act="go-build">Собрать новую</button></div>`);
+  S.sheetFn = () => sheetPrograms();
 }
 
 /* ---------- sheet ---------- */
 function openSheet(html, paper, keepScroll) {
   const sh = $('#sheet'); const b = $('.sheet-body', sh);
+  S.sheetFn = null; S.exBack = null;
   b.className = 'sheet-body' + (paper ? ' paper' : '') + (sh.hidden ? ' anim' : ''); b.innerHTML = html; const st = b.scrollTop; sh.hidden = false; b.scrollTop = keepScroll ? st : 0;
   if (tg?.BackButton) tg.BackButton.show();
+}
+// × / «назад» / тап по фону: из описания упражнения — обратно в список, иначе закрыть
+function userClose() {
+  if (S.exBack) { const [f, y] = S.exBack; S.exBack = null; f(); $('.sheet-body').scrollTop = y; return; }
+  closeSheet();
 }
 function closeSheet() { $('#sheet').hidden = true; if (tg?.BackButton && (S.tab === 'cover' || S.tab === 'live')) tg.BackButton.hide(); }
 const sheetOpen = () => !$('#sheet').hidden;
@@ -655,7 +665,7 @@ function askText(title, def) {
 /* ---------------- actions ---------------- */
 const A = {
   'go-build': () => { closeSheet(); go('build'); },
-  random: () => { if (S.draft) return go('live'); genRandom(); sheetRandom(); },
+  random: () => { if (S.draft) return go('live'); if (!S.rndIds || !S.rndIds.length) genRandom(); sheetRandom(); },
   'rnd-preset': el => { const p = PRESETS[+el.dataset.i][1]; const c = S.settings.rnd; const same = c.groups.length === p.length && p.every(g => c.groups.includes(g)); c.groups = same ? [] : p.slice(); c.n = Math.max(c.n, Math.min(8, c.groups.length)); rndChanged(); },
   'rnd-grp': el => { const c = S.settings.rnd, g = el.dataset.k; c.groups = c.groups.includes(g) ? c.groups.filter(x => x !== g) : [...c.groups, g]; rndChanged(); },
   'rnd-type': el => { S.settings.rnd.type = el.dataset.k; rndChanged(); },
@@ -669,7 +679,7 @@ const A = {
   'rnd-del': el => { S.rndIds.splice(+el.dataset.i, 1); sheetRandom(true); },
   'rnd-mode': el => { S.mode = el.dataset.m; sheetRandom(true); },
   'rnd-r': el => { S.rounds = Math.min(10, Math.max(1, S.rounds + +el.dataset.d)); sheetRandom(true); },
-  'rnd-go': () => { if (S.rndIds.length) startWorkout(S.rndIds.slice(), S.mode, S.rounds, ''); },
+  'rnd-go': () => { if (S.rndIds.length) { const ids = S.rndIds.slice(); S.rndIds = []; startWorkout(ids, S.mode, S.rounds, ''); } },
   'rnd-edit': () => { S.sel = S.rndIds.slice(); closeSheet(); go('build'); sheetSetlist(); },
 
   'go-journal': () => go('journal'),
@@ -684,8 +694,8 @@ const A = {
     if (el.dataset.close) closeSheet();
     rerenderBuild();
   },
-  'ex-info': el => sheetEx(el.dataset.id),
-  fav: el => { const id = el.dataset.id; const l = S.favs.list; S.favs.list = l.includes(id) ? l.filter(x => x !== id) : [...l, id]; saveBlob('favs'); haptic(); sheetEx(id); if (S.tab === 'build') rerenderBuild(); },
+  'ex-info': el => { const back = sheetOpen() && S.sheetFn ? [S.sheetFn, $('.sheet-body').scrollTop] : (S.exBack || null); sheetEx(el.dataset.id, back); },
+  fav: el => { const id = el.dataset.id; const l = S.favs.list; S.favs.list = l.includes(id) ? l.filter(x => x !== id) : [...l, id]; saveBlob('favs'); haptic(); sheetEx(id, S.exBack); if (S.tab === 'build') rerenderBuild(); },
   video: el => openLink(el.dataset.u),
   yt: el => openLink('https://www.youtube.com/results?search_query=' + encodeURIComponent(el.dataset.q)),
   'new-ex': () => sheetNewEx(),
@@ -780,7 +790,7 @@ const A = {
     try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' })); a.download = name; a.click(); } catch (e) {}
     copy(data);
   },
-  close: () => closeSheet(),
+  close: () => userClose(),
   'ask-ok': () => { const v = $('#ask-in').value.trim(); closeSheet(); askText.cb && askText.cb(v); askText.cb = null; },
   'ask-cancel': () => { closeSheet(); askText.cb && askText.cb(''); askText.cb = null; },
 };
@@ -800,7 +810,7 @@ function rerenderBuild() {
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
   if (t) { const f = A[t.dataset.act]; if (f) { e.preventDefault(); f(t); } return; }
-  if (e.target.classList.contains('sheet-bg')) closeSheet();
+  if (e.target.classList.contains('sheet-bg')) userClose();
   const tab = e.target.closest('#tabs button'); if (tab) { closeSheet(); S.addingLive = false; go(tab.dataset.tab); }
   if (e.target.closest('#livebar')) { curRound(); go('live'); }
 });
@@ -830,7 +840,7 @@ function resizeImg(file, max) {
   return new Promise(res => { const img = new Image(); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', .8)); }; img.src = URL.createObjectURL(file); });
 }
 function onBack() {
-  if (sheetOpen()) return closeSheet();
+  if (sheetOpen()) return userClose();
   if (S.addingLive) { S.addingLive = false; return go('live'); }
   if (S.tab !== 'cover' && S.tab !== 'live') go('cover');
 }

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>ЖЕЛЕЗО — домашний журнал тренировок</title>
+<meta name="theme-color" content="#0b0b0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=9">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<main id="screen"></main>
+<div id="livebar" hidden></div>
+<nav id="tabs">
+  <button data-tab="cover"><span class="ti">№</span>Обложка</button>
+  <button data-tab="build"><span class="ti">+</span>Конструктор</button>
+  <button data-tab="journal"><span class="ti">✎</span>Дневник</button>
+  <button data-tab="more"><span class="ti">≡</span>Ещё</button>
+</nav>
+<div id="sheet" hidden><div class="sheet-bg"></div><div class="sheet-body"></div></div>
+<div id="toast" hidden></div>
+<script src="exercises.js?v=9"></script>
+<script src="app.js?v=9"></script>
+</body>
+</html>

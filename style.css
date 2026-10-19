@@ -108,7 +108,8 @@ input,textarea,select{font:inherit;color:inherit}
 #sheet{position:fixed;inset:0;z-index:50}
 #sheet[hidden]{display:none}
 .sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.7)}
-.sheet-body{position:absolute;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;background:#121212;border-top:4px solid var(--red);padding:0 0 calc(16px + var(--safe-b));animation:up .22s ease}
+.sheet-body{position:absolute;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;background:#121212;border-top:4px solid var(--red);padding:0 0 calc(16px + var(--safe-b))}
+.sheet-body.anim{animation:up .22s ease}
 .sheet-body.paper{background:var(--paper);color:#111;border-top-color:var(--red)}
 @keyframes up{from{transform:translateY(40px);opacity:.3}}
 .sh-head{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 10px}
@@ -268,3 +269,9 @@ input,textarea,select{font:inherit;color:inherit}
 #toast[hidden]{display:none}
 .foot{padding:22px 16px 30px;font-size:12px;color:#5d5952;line-height:1.5}
 .foot a{color:#8a857d}
+.chips.wrapc{flex-wrap:wrap;overflow:visible;padding-bottom:8px}
+.hint{margin:0 16px 4px;font-size:13px;font-style:italic}
+.sl button.nm{text-align:left;padding:0}
+.sl .nm small{display:block;margin-top:3px;font-family:var(--head);font-weight:400;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.cover .btn.yel+.btn{margin-top:0}
+.sticky-go{position:sticky;bottom:calc(-16px - var(--safe-b));padding:10px 16px calc(12px + var(--safe-b));margin-bottom:calc(-16px - var(--safe-b));background:linear-gradient(180deg,rgba(18,18,18,0),#121212 30%)}

@@ -26,7 +26,7 @@ const RATES = [['1','Тяжко'],['2','Норм'],['3','Мощно'],['4','Ог
 
 /* ---------------- storage ---------------- */
 const DEF = {
-  settings: { ts: 0, gym: false, eq: {band:true,mini:true,bw:true,bar:true,wheel:true,bench:true}, rest: 60, defSets: 3, defRounds: 3,
+  settings: { ts: 0, gym: false, rnd: { groups: [], type: 'mix', n: 5 }, eq: {band:true,mini:true,bw:true,bar:true,wheel:true,bench:true}, rest: 60, defSets: 3, defRounds: 3,
     bands: [ {id:'y',name:'Жёлтая',c:'#f2d024'},{id:'r',name:'Красная',c:'#d8261c'},{id:'g',name:'Зелёная',c:'#2f9e44'},{id:'b',name:'Синяя',c:'#1c6dd0'},{id:'k',name:'Чёрная',c:'#111111'} ] },
   favs: { ts: 0, list: [] },
   custom: { ts: 0, list: [] },
@@ -79,6 +79,7 @@ function saveDraft() { // локально сразу, в облако — не 
 function loadLocal() {
   for (const k of ['settings','favs','custom','programs']) S[k] = Object.assign(structuredClone(DEF[k]), LS.get(k) || {});
   S.settings.eq = Object.assign({}, DEF.settings.eq, S.settings.eq);
+  S.settings.rnd = Object.assign({}, DEF.settings.rnd, S.settings.rnd);
   S.workouts = LS.get('workouts') || [];
   S.draft = LS.get('draft');
   S.coverImg = LS.get('cover');
@@ -218,7 +219,7 @@ function vCover() {
       <div class="cl-serif">${lastLine}</div>
     </div>
     <div class="wrap" style="margin-top:22px;display:flex;flex-direction:column;gap:12px">
-      ${S.draft ? `<button class="btn yel" data-act="resume">Продолжить тренировку ▸</button>` : `<button class="btn" data-act="go-build">Собрать тренировку</button>`}
+      ${S.draft ? `<button class="btn yel" data-act="resume">Продолжить тренировку ▸</button>` : `<button class="btn yel" data-act="random">🎲 Случайная тренировка</button><button class="btn" data-act="go-build">Собрать самому</button>`}
       <div class="row">
         <button class="btn dark sm" data-act="programs">Мои программы</button>
         ${last ? `<button class="btn dark sm" data-act="repeat" data-id="${last.id}">Повторить прошлую</button>` : `<button class="btn dark sm" data-act="go-journal">Дневник</button>`}
@@ -265,6 +266,7 @@ function vBuild() {
   const eqChips = [['all', 'Всё'], ['fav', '★ Избранное'], ...EQUIP.filter(([k]) => S.settings.eq[k] !== false)];
   return `
   <header class="pagehead"><div class="kick">Рубрика · конструктор</div><h1>${S.addingLive ? 'Добавь в тренировку' : 'Собери тренировку'}</h1><p>${S.addingLive ? 'Нажми «+» у упражнения — оно сразу встанет в текущую тренировку.' : 'Выбери мышцы, отметь упражнения — и в бой.'}</p></header>
+  ${S.addingLive ? '' : `<div class="wrap" style="padding-top:12px"><button class="btn yel sm" style="width:100%" data-act="random">🎲 Некогда выбирать? Собери случайно</button></div>`}
   <div class="groups">${GROUPS.map(([k, n]) => `<button class="grp ${S.groups.includes(k) ? 'on' : ''}" data-act="grp" data-g="${k}">${n}<small>${cnt(k)} упр.</small></button>`).join('')}</div>
   <div class="chips">${eqChips.map(([k, n]) => `<button class="chip ${S.eqf === k ? 'on' : ''}" data-act="eqf" data-k="${k}">${n}</button>`).join('')}</div>
   <label class="search"><span class="mute">⌕</span><input id="q" type="search" placeholder="Поиск: тяга, бицепс, face pull…" value="${esc(S.q)}" autocomplete="off"></label>
@@ -287,6 +289,74 @@ function sheetSetlist() {
       <div class="row"><button class="btn dark sm" data-act="save-prog">Сохранить как программу</button><button class="btn dark sm" data-act="sl-clear">Очистить</button></div>
     </div>`);
 }
+
+/* ---------- рандомайзер ---------- */
+const PRESETS = [
+  ['Всё тело', ['chest','back','shoulders','quads','hamstrings','abs']],
+  ['Верх', ['chest','back','shoulders','biceps','triceps']],
+  ['Низ', ['quads','hamstrings','glutes','calves']],
+  ['Толкай', ['chest','shoulders','triceps']],
+  ['Тяни', ['back','biceps']],
+  ['Руки', ['biceps','triceps','forearms']],
+];
+const BIG = ['chest','back','quads','shoulders','hamstrings','glutes'];
+const KN = { c: 'база', i: 'изоляция' };
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const baseKey = n => n.toLowerCase().replace(/\(.*?\)|«.*?»/g, '').replace(/одной рукой|одной ногой|двумя руками|поочерёдн\S*|с резиной|на стенке|стоя|сидя|лёжа/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+function pickOne(g, k, taken) {
+  const usedKeys = new Set(taken.map(id => baseKey(exById(id).n)));
+  const recent = new Set(S.workouts.slice(-3).flatMap(w => w.items.map(it => it.ex)));
+  const favs = new Set(S.favs.list);
+  const ok = e => e.g === g && !e.gym && eqAllowed(e) && !taken.includes(e.id) && !usedKeys.has(baseKey(e.n));
+  const tiers = [ // от «чистого бодибилдинга» к любому подходящему
+    e => ok(e) && (!k || e.k === k) && !['mob','bal','af','ply','pos'].includes(e.cl) && (e.l || 1) <= 2,
+    e => ok(e) && (!k || e.k === k) && !['mob','af','ply'].includes(e.cl),
+    e => ok(e) && !['mob','af'].includes(e.cl),
+    e => ok(e),
+  ];
+  for (const t of tiers) {
+    const pool = EX.filter(t); if (!pool.length) continue;
+    const w = pool.map(e => (e.own || e.pro ? 3 : e.cl === 'bb' ? 1.5 : 1) * (favs.has(e.id) ? 4 : 1) * ((e.e || [])[0] === 'band' ? 2 : 1) * (recent.has(e.id) ? 0.3 : 1));
+    let r = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i].id; }
+    return pool[pool.length - 1].id;
+  }
+  return null;
+}
+function genRandom() {
+  const cfg = S.settings.rnd;
+  const groups = cfg.groups.length ? cfg.groups.slice() : PRESETS[0][1].slice();
+  const order = shuffle(groups.filter(g => BIG.includes(g))).concat(shuffle(groups.filter(g => !BIG.includes(g))));
+  const per = {}; const ids = [];
+  for (let i = 0; i < cfg.n; i++) {
+    const g = order[i % order.length]; per[g] = (per[g] || 0) + 1;
+    const first = ['chest','back','quads','hamstrings','glutes'].includes(g) ? 'c' : 'i'; // в миксе крупные начинают с базы, плечи и мелкие — с изоляции
+    const k = cfg.type === 'base' ? 'c' : cfg.type === 'iso' ? 'i' : (per[g] % 2 ? first : (first === 'c' ? 'i' : 'c'));
+    const id = pickOne(g, k, ids); if (id) ids.push(id);
+  }
+  // база вперёд, изоляция в конце
+  S.rndIds = ids.filter(id => exById(id).k !== 'i').concat(ids.filter(id => exById(id).k === 'i'));
+}
+function sheetRandom(keep) {
+  const cfg = S.settings.rnd;
+  const presetOn = i => { const p = PRESETS[i][1]; return cfg.groups.length === p.length && p.every(g => cfg.groups.includes(g)); };
+  openSheet(`
+    <div class="sh-head"><h3>🎲 Случайная тренировка</h3><button class="sh-x" data-act="close">×</button></div>
+    <div class="chips wrapc">${PRESETS.map(([n], i) => `<button class="chip ${presetOn(i) ? 'on' : ''}" data-act="rnd-preset" data-i="${i}">${n}</button>`).join('')}</div>
+    <div class="chips wrapc">${GROUPS.map(([k, n]) => `<button class="chip ${cfg.groups.includes(k) ? 'on' : ''}" data-act="rnd-grp" data-k="${k}">${n}</button>`).join('')}</div>
+    <p class="mute hint">${cfg.groups.length ? 'Мышцы: ' + cfg.groups.map(g => GN[g].toLowerCase()).join(', ') : 'Мышцы не выбраны — будет всё тело'}</p>
+    <div class="seg">${[['base', 'База'], ['mix', 'Микс'], ['iso', 'Изоляция']].map(([k, n]) => `<button class="${cfg.type === k ? 'on' : ''}" data-act="rnd-type" data-k="${k}">${n}</button>`).join('')}</div>
+    <div class="stepper"><span class="lbl">Упражнений</span><span class="ctl"><button data-act="rnd-n" data-d="-1">−</button><b>${cfg.n}</b><button data-act="rnd-n" data-d="1">+</button></span></div>
+    <div class="rubric" style="padding-top:6px"><span class="tag">Выпало</span><button class="r" data-act="rnd-all">🎲 перебросить всё</button></div>
+    <ul class="sl">${S.rndIds.map((id, i) => { const e = exById(id); return `<li><span class="num">${i + 1}</span>
+      <button class="nm" data-act="ex-info" data-id="${id}">${esc(e.n)}<small>${GN[e.g]} · ${KN[e.k] || ''}${e.a ? ' · крепление: ' + ANCH[e.a] : ''}</small></button>
+      <button class="mv" data-act="rnd-one" data-i="${i}">🎲</button><button class="mv" data-act="rnd-del" data-i="${i}">✕</button></li>`; }).join('') || '<div class="empty">Под такие условия ничего не нашлось.</div>'}</ul>
+    <div class="seg"><button class="${S.mode === 'mega' ? 'on' : ''}" data-act="rnd-mode" data-m="mega">Мегасет (круг)</button><button class="${S.mode === 'sets' ? 'on' : ''}" data-act="rnd-mode" data-m="sets">По подходам</button></div>
+    <div class="stepper"><span class="lbl">${S.mode === 'mega' ? 'Кругов' : 'Подходов'}</span><span class="ctl"><button data-act="rnd-r" data-d="-1">−</button><b>${S.rounds}</b><button data-act="rnd-r" data-d="1">+</button></span></div>
+    <div class="sh-actions"><button class="btn dark sm" data-act="rnd-edit">Поправить в конструкторе</button></div>
+    <div class="sticky-go"><button class="btn" data-act="rnd-go" ${S.rndIds.length ? '' : 'disabled'}>Поехали! ${S.rndIds.length} упр. ▸</button></div>`, false, keep);
+}
+function rndChanged() { saveBlob('settings'); genRandom(); haptic(); sheetRandom(true); }
 
 /* ---------- exercise info ---------- */
 function sheetEx(id) {
@@ -530,9 +600,9 @@ function sheetPrograms() {
 }
 
 /* ---------- sheet ---------- */
-function openSheet(html, paper) {
+function openSheet(html, paper, keepScroll) {
   const sh = $('#sheet'); const b = $('.sheet-body', sh);
-  b.className = 'sheet-body' + (paper ? ' paper' : ''); b.innerHTML = html; sh.hidden = false; b.scrollTop = 0;
+  b.className = 'sheet-body' + (paper ? ' paper' : '') + (sh.hidden ? ' anim' : ''); b.innerHTML = html; const st = b.scrollTop; sh.hidden = false; b.scrollTop = keepScroll ? st : 0;
   if (tg?.BackButton) tg.BackButton.show();
 }
 function closeSheet() { $('#sheet').hidden = true; if (tg?.BackButton && (S.tab === 'cover' || S.tab === 'live')) tg.BackButton.hide(); }
@@ -561,6 +631,23 @@ function askText(title, def) {
 /* ---------------- actions ---------------- */
 const A = {
   'go-build': () => { closeSheet(); go('build'); },
+  random: () => { if (S.draft) return go('live'); genRandom(); sheetRandom(); },
+  'rnd-preset': el => { const p = PRESETS[+el.dataset.i][1]; const c = S.settings.rnd; const same = c.groups.length === p.length && p.every(g => c.groups.includes(g)); c.groups = same ? [] : p.slice(); c.n = Math.max(c.n, Math.min(8, c.groups.length)); rndChanged(); },
+  'rnd-grp': el => { const c = S.settings.rnd, g = el.dataset.k; c.groups = c.groups.includes(g) ? c.groups.filter(x => x !== g) : [...c.groups, g]; rndChanged(); },
+  'rnd-type': el => { S.settings.rnd.type = el.dataset.k; rndChanged(); },
+  'rnd-n': el => { const c = S.settings.rnd; c.n = Math.min(12, Math.max(2, c.n + +el.dataset.d)); rndChanged(); },
+  'rnd-all': () => { genRandom(); haptic('medium'); sheetRandom(true); },
+  'rnd-one': el => {
+    const i = +el.dataset.i; const old = exById(S.rndIds[i]); const others = S.rndIds.filter((_, j) => j !== i).concat(old.id);
+    const nid = pickOne(old.g, old.k, others) || pickOne(old.g, null, others);
+    if (nid) S.rndIds[i] = nid; else toast('Других вариантов нет'); haptic(); sheetRandom(true);
+  },
+  'rnd-del': el => { S.rndIds.splice(+el.dataset.i, 1); sheetRandom(true); },
+  'rnd-mode': el => { S.mode = el.dataset.m; sheetRandom(true); },
+  'rnd-r': el => { S.rounds = Math.min(10, Math.max(1, S.rounds + +el.dataset.d)); sheetRandom(true); },
+  'rnd-go': () => { if (S.rndIds.length) startWorkout(S.rndIds.slice(), S.mode, S.rounds, ''); },
+  'rnd-edit': () => { S.sel = S.rndIds.slice(); closeSheet(); go('build'); sheetSetlist(); },
+
   'go-journal': () => go('journal'),
   resume: () => { S.addingLive = false; curRound(); go('live'); },
   programs: () => sheetPrograms(),
